@@ -98,20 +98,29 @@ def parse_model_spec(spec: str) -> tuple[str, str | None, str | None]:
     return runner, model or None, effort or None
 
 
-def openrouter_key() -> str:
-    key = os.environ.get("OPENROUTER_API_KEY")
-    if not key:
+def secret(name: str) -> str:
+    """Read a secret from the environment, falling back to the .env file."""
+    val = os.environ.get(name)
+    if not val:
         env_file = ROOT / ".env"
         if env_file.exists():
             for line in env_file.read_text().splitlines():
                 k, _, v = line.strip().partition("=")
-                if k == "OPENROUTER_API_KEY" and v:
-                    key = v.strip().strip('"')
-    if not key:
-        raise RuntimeError(
-            "OPENROUTER_API_KEY not set (export it or put it in .env)"
-        )
-    return key
+                if k == name and v:
+                    val = v.strip().strip('"')
+    if not val:
+        raise RuntimeError(f"{name} not set (export it or put it in .env)")
+    return val
+
+
+def codex_api_home() -> Path:
+    """A private CODEX_HOME so API-key runs don't touch ~/.codex auth."""
+    home = ROOT / ".codex-api"
+    home.mkdir(exist_ok=True)
+    (home / "auth.json").write_text(
+        json.dumps({"OPENAI_API_KEY": secret("OPENAI_API_KEY")}))
+    (home / "config.toml").write_text('preferred_auth_method = "apikey"\n')
+    return home
 
 
 def run_openrouter(prompt: str, model: str | None, effort: str | None,
@@ -130,7 +139,7 @@ def run_openrouter(prompt: str, model: str | None, effort: str | None,
         "https://openrouter.ai/api/v1/chat/completions",
         data=json.dumps(body).encode(),
         headers={
-            "Authorization": f"Bearer {openrouter_key()}",
+            "Authorization": f"Bearer {secret('OPENROUTER_API_KEY')}",
             "Content-Type": "application/json",
         },
     )
@@ -183,7 +192,10 @@ def run_claude(prompt: str, model: str | None, effort: str | None,
 
 
 def run_codex(prompt: str, model: str | None, effort: str | None,
-              timeout: int) -> dict:
+              timeout: int, api: bool = False) -> dict:
+    env = os.environ.copy()
+    if api:
+        env["CODEX_HOME"] = str(codex_api_home())
     cmd = [
         "codex", "exec",
         "--skip-git-repo-check",
@@ -199,7 +211,8 @@ def run_codex(prompt: str, model: str | None, effort: str | None,
         cmd += ["-c", f"model_reasoning_effort={effort}"]
     cmd.append(prompt)
     proc = subprocess.run(
-        cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout
+        cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+        timeout=timeout, env=env,
     )
     if proc.returncode != 0:
         detail = ""
@@ -233,8 +246,13 @@ def run_codex(prompt: str, model: str | None, effort: str | None,
     }
 
 
+def run_codex_api(prompt: str, model: str | None, effort: str | None,
+                  timeout: int) -> dict:
+    return run_codex(prompt, model, effort, timeout, api=True)
+
+
 RUNNERS = {"claude": run_claude, "codex": run_codex,
-           "openrouter": run_openrouter}
+           "codex-api": run_codex_api, "openrouter": run_openrouter}
 
 
 # ---------------------------------------------------------------- grading

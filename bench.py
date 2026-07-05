@@ -29,19 +29,15 @@ RESULTS_FILE = ROOT / "results" / "runs.jsonl"
 
 NYT_URL = "https://www.nytimes.com/svc/connections/v2/{date}.json"
 
-PROMPT_TEMPLATE = """\
-Solve this NYT Connections puzzle. Group the 16 words below into 4 groups of \
-exactly 4 words each. Each group shares a common theme, and each word belongs \
-to exactly one group. Beware of red herrings: some words seem to fit more than \
-one theme, but only one complete grouping uses every word exactly once.
+PROMPT_VERSION = 2
 
-Words (in board order):
+PROMPT_TEMPLATE = """\
+Solve this NYT Connections puzzle:
+
 {words}
 
-This is a single-shot attempt: give your one best complete answer. Do not use \
-any tools, searches, or external lookups. Respond with ONLY a JSON object in \
-exactly this format, with no other text before or after it:
-{{"groups": [{{"theme": "...", "words": ["W1", "W2", "W3", "W4"]}}, {{"theme": "...", "words": ["W1", "W2", "W3", "W4"]}}, {{"theme": "...", "words": ["W1", "W2", "W3", "W4"]}}, {{"theme": "...", "words": ["W1", "W2", "W3", "W4"]}}]}}
+Respond with ONLY a JSON object, no other text:
+{{"groups": [{{"theme": "...", "words": ["...", "..."]}}, ...]}}
 """
 
 
@@ -339,6 +335,7 @@ def attempt(date: str, spec: str, timeout: int) -> dict:
         "puzzle_id": puzzle.get("id"),
         "model": spec,
         "runner": runner,
+        "prompt_v": PROMPT_VERSION,
     }
     start = time.monotonic()
     try:
@@ -371,7 +368,8 @@ def cmd_run(args: argparse.Namespace) -> None:
         sys.exit("run requires --date, or --start and --end")
 
     specs = [s.strip() for s in args.models.split(",") if s.strip()]
-    done = {(r["date"], r["model"]) for r in load_runs() if not r.get("error")}
+    done = {(r["date"], r["model"]) for r in load_runs()
+            if not r.get("error") and r.get("prompt_v", 1) == PROMPT_VERSION}
     tasks = [(d, s) for d in dates for s in specs
              if args.rerun or (d, s) not in done]
     skipped = len(dates) * len(specs) - len(tasks)
@@ -404,8 +402,12 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 def cmd_summary(_args: argparse.Namespace) -> None:
     runs = load_runs()
+    older = sum(1 for r in runs if r.get("prompt_v", 1) != PROMPT_VERSION)
+    runs = [r for r in runs if r.get("prompt_v", 1) == PROMPT_VERSION]
+    if older:
+        print(f"(ignoring {older} run(s) from older prompt versions)")
     if not runs:
-        print("no runs recorded yet")
+        print("no runs recorded yet for the current prompt version")
         return
     # Keep only the latest attempt per (date, model).
     latest: dict[tuple, dict] = {}

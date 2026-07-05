@@ -3,3 +3,4 @@ puzzles/
 __pycache__/
 .DS_Store
 .codex-api/
+viz.html

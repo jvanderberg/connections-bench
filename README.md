@@ -1,53 +1,107 @@
 # connections-bench
 
-Benchmark LLM coding-agent CLIs (`claude`, `codex`) on the NYT Connections
-puzzle: each model gets a single shot at grouping the 16 words into the 4
-official groups.
+Single-shot benchmark of LLMs on the NYT Connections puzzle: each model gets
+**one attempt** to group the 16 words into the 4 official groups — no retries,
+no feedback, no tools.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/results-dark.png">
+  <img alt="Solve-rate grid: 15 models × 10 daily puzzles, with per-model solved counts, average output tokens, and cost" src="assets/results-light.png">
+</picture>
+
+## Results (June 25 – July 4, 2026)
+
+| model | solved | avg out tokens | avg cost/puzzle |
+|---|---|---|---|
+| GPT-5.5 (codex) | **10/10** | 1,336 | – (sub) |
+| Claude Fable 5 @high | **10/10** | 1,648 | $0.19 |
+| Claude Opus 4.5 @high | **10/10** | 7,414 | $0.24 |
+| Claude Opus 4.8 @high | 9/10 | 3,037 | $0.13 |
+| GPT-5.4 mini | 9/10 | 10,142 | – (sub) |
+| Claude Sonnet 5 @high | 8/10 | 4,112 | $0.10 |
+| GLM-5.2 | 8/10 | 17,423 | $0.053 |
+| DeepSeek V4 Pro | 7/10 | 12,207 | $0.039 |
+| Kimi K2.6 | 7/10 | 23,057 | $0.069 |
+| Claude Sonnet 4.5 @high | 6/10 | 5,416 | $0.11 |
+| Qwen3.6 35B A3B | 5/10 | 17,235 | $0.018 |
+| MiniMax M3 | 4/10 | 38,994 | $0.048 |
+| Claude Haiku 4.5 @high | 3/10 | 12,135 | $0.080 |
+| DeepSeek V4 Flash | 3/10 | 17,594 | $0.004 |
+| GPT-4.1 mini | 0/10 | 153 | – |
+
+Things the sweep surfaced:
+
+- **Puzzle difficulty swings hard day to day** — July 3 fell to 14 of 15 models,
+  June 25 to only 7. Single-day comparisons are noise.
+- **Reasoning is the entry ticket.** GPT-4.1 mini (no reasoning) answers in
+  ~150 tokens and went 0/10. Everything that deliberates solves at least a few.
+- **Capability shows up as token efficiency, not just accuracy.** The top models
+  solve in 1–2k output tokens; mid-tier models burn 10–40k for worse results.
+- **GLM-5.2 is the open-weight standout** — 8/10 for half a cent per solve-tier
+  performance, matching Claude Sonnet 5.
 
 ## How it works
 
-- **Puzzles** are fetched from the public NYT endpoint
-  `https://www.nytimes.com/svc/connections/v2/<YYYY-MM-DD>.json` and cached in
-  `puzzles/` (gitignored — the puzzle content is NYT's). Any date from
-  2023-06-12 onward works.
-- **Attempts** shell out to the installed CLIs in headless one-shot mode with
-  tools and web search disabled, so the model can't just look up the answer:
-  - `claude -p --tools "" --output-format json [--model <m>]`
-  - `codex exec --json --sandbox read-only -c tools.web_search=false --ephemeral [-m <m>]`
-  - `openrouter:<model-id>` calls the OpenRouter chat-completions API directly
-    (no agent harness — just the raw model). Needs `OPENROUTER_API_KEY` in the
-    environment or in a gitignored `.env` file. Good for open-weight models,
-    e.g. `openrouter:deepseek/deepseek-v4-pro`, `openrouter:moonshotai/kimi-k2.6`,
-    `openrouter:z-ai/glm-5.2`, `openrouter:minimax/minimax-m3`,
-    `openrouter:qwen/qwen3.6-35b-a3b`.
-- **Grading** ignores the theme labels; an attempt is *solved* only if all four
-  4-word groupings exactly match the official answer. Partial credit is
-  recorded as `correct_groups` (0, 1, 2, or 4 — three correct implies four).
-- **Results** are appended to `results/runs.jsonl`, one JSON object per
-  attempt, including token counts (`tokens_in`, `tokens_in_cached`,
-  `tokens_out`, `tokens_reasoning`), cost (claude only — codex doesn't report
-  it), duration, the parsed guess, and the raw model response.
+- **Puzzles** come from NYT's public JSON endpoint
+  (`https://www.nytimes.com/svc/connections/v2/<YYYY-MM-DD>.json`), cached in
+  `puzzles/` (gitignored). Any date since 2023-06-12 works.
+- **The prompt is deliberately bare** — the 16 words in board order plus the
+  answer shape, nothing else. No rules, no "4 groups of 4", no red-herring
+  warning (early testing showed those hints measurably help weaker models):
+
+  ```
+  Solve the puzzle:
+
+  <the 16 words, one per line>
+
+  Respond with ONLY a JSON object, no other text:
+  {"groups": [{"theme": "...", "words": ["...", "..."]}, ...]}
+  ```
+
+- **Runners** (specs are `runner[:model][@effort]`):
+  - `claude:<model>[@effort]` — `claude -p --tools ""` (Claude Code CLI, all tools disabled)
+  - `codex[:<model>][@effort]` — `codex exec --sandbox read-only -c tools.web_search=false`
+    on the ChatGPT account
+  - `codex-api:<model>` — same, but with an isolated `CODEX_HOME` using
+    `OPENAI_API_KEY` (unlocks models the ChatGPT plan rejects)
+  - `openrouter:<model-id>` — direct chat-completions API call (no agent harness)
+- **Anti-cheat**: answers for a given day are published all over the web, so
+  web search and tools are disabled in every runner.
+- **Grading** ignores theme labels. Solved = all four 4-word groupings match
+  exactly. Partial credit recorded as `correct_groups` (0, 1, 2, or 4 — three
+  correct implies four).
+- **Records**: every attempt appends to `results/runs.jsonl` with token counts
+  (in/cached/out/reasoning), cost where the API reports it, duration, the parsed
+  guess, the raw response, and a `prompt_v` tag so prompt revisions never mix.
 
 ## Usage
 
 ```sh
-# both default models on one puzzle
-./bench.py run --date 2026-07-04
-
-# a month of puzzles, specific model variants, 6 parallel attempts
-./bench.py run --start 2026-06-01 --end 2026-06-30 \
-    --models claude:opus,claude:haiku,codex,codex:@low --jobs 6
-
-# results table (also printed after every run)
-./bench.py summary
+./bench.py run --date 2026-07-04                 # roster from models.txt
+./bench.py run --start 2026-06-25 --end 2026-07-04 --jobs 6
+./bench.py run --date 2026-07-04 --models claude:haiku@low,openrouter:z-ai/glm-5.2
+./bench.py summary                               # leaderboard table
+python3 viz.py                                   # regenerate viz.html
 ```
 
-Model specs are `runner[:model][@effort]` — the model is passed straight to
-the CLI's `--model`/`-m` flag, and the effort to `claude --effort` /
-codex `-c model_reasoning_effort=`. `codex:@low` means codex's default model
-at low reasoning effort (ChatGPT-account codex only accepts its default
-model, so effort is the lever there). Attempts already recorded for a (date, model)
-pair are skipped; pass `--rerun` to redo them (the summary uses the latest
-attempt per pair).
+Keys: `OPENROUTER_API_KEY` and `OPENAI_API_KEY` from the environment or a
+gitignored `.env`. Attempts already recorded for a (date, model, prompt-version)
+are skipped; `--rerun` forces. Errored attempts retry automatically on the next
+run.
 
-No dependencies beyond Python 3.10+ and the two CLIs on PATH.
+The figure: `python3 viz.py` then
+`npx playwright screenshot --viewport-size "1012,590" --color-scheme light viz.html assets/results-light.png`
+(and again with `dark`).
+
+## Caveats
+
+- **Training-data contamination**: puzzles before each model's cutoff may have
+  been memorized. All dates here (mid-2026) post-date every tested model's
+  cutoff, but be careful benchmarking the 2023–2024 archive.
+- **Harness asymmetry**: claude/codex attempts run inside their agent CLIs
+  (system prompts included); OpenRouter attempts are raw API calls.
+- **Costs**: claude numbers are the CLI's API-metered figure (notional if you're
+  on a subscription); codex ChatGPT-account runs don't report cost; OpenRouter
+  is exact.
+- One attempt per (date, model) — solve rates on 10 puzzles carry ±1-puzzle
+  noise; treat close rankings as ties.

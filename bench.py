@@ -29,10 +29,10 @@ RESULTS_FILE = ROOT / "results" / "runs.jsonl"
 
 NYT_URL = "https://www.nytimes.com/svc/connections/v2/{date}.json"
 
-PROMPT_VERSION = 2
+PROMPT_VERSION = 3
 
 PROMPT_TEMPLATE = """\
-Solve this NYT Connections puzzle:
+Solve the puzzle:
 
 {words}
 

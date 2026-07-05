@@ -15,6 +15,7 @@ import argparse
 import concurrent.futures
 import datetime as dt
 import json
+import os
 import re
 import subprocess
 import sys
@@ -82,18 +83,82 @@ def norm(word: str) -> str:
 
 # ---------------------------------------------------------------- runners
 
-def parse_model_spec(spec: str) -> tuple[str, str | None]:
-    """'claude' -> ('claude', None); 'codex:gpt-5.1' -> ('codex', 'gpt-5.1')."""
-    runner, _, model = spec.partition(":")
-    if runner not in ("claude", "codex"):
+def parse_model_spec(spec: str) -> tuple[str, str | None, str | None]:
+    """Parse 'runner[:model][@effort]'.
+
+    'claude' -> ('claude', None, None)
+    'claude:haiku' -> ('claude', 'haiku', None)
+    'codex:@low' -> ('codex', None, 'low')  # default model, low reasoning
+    'claude:sonnet@low' -> ('claude', 'sonnet', 'low')
+    """
+    runner, _, rest = spec.partition(":")
+    if runner not in RUNNERS:
         raise ValueError(f"unknown runner {runner!r} in model spec {spec!r}")
-    return runner, model or None
+    model, _, effort = rest.partition("@")
+    return runner, model or None, effort or None
 
 
-def run_claude(prompt: str, model: str | None, timeout: int) -> dict:
+def openrouter_key() -> str:
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if not key:
+        env_file = ROOT / ".env"
+        if env_file.exists():
+            for line in env_file.read_text().splitlines():
+                k, _, v = line.strip().partition("=")
+                if k == "OPENROUTER_API_KEY" and v:
+                    key = v.strip().strip('"')
+    if not key:
+        raise RuntimeError(
+            "OPENROUTER_API_KEY not set (export it or put it in .env)"
+        )
+    return key
+
+
+def run_openrouter(prompt: str, model: str | None, effort: str | None,
+                   timeout: int) -> dict:
+    if not model:
+        raise ValueError("openrouter spec needs a model, e.g. "
+                         "openrouter:deepseek/deepseek-v4-pro")
+    body = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "usage": {"include": True},
+    }
+    if effort:
+        body["reasoning"] = {"effort": effort}
+    req = urllib.request.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=json.dumps(body).encode(),
+        headers={
+            "Authorization": f"Bearer {openrouter_key()}",
+            "Content-Type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = json.loads(resp.read())
+    if data.get("error"):
+        raise RuntimeError(f"openrouter error: {data['error']}")
+    usage = data.get("usage", {})
+    details = usage.get("completion_tokens_details") or {}
+    return {
+        "text": data["choices"][0]["message"].get("content") or "",
+        "tokens_in": usage.get("prompt_tokens", 0),
+        "tokens_in_cached": (usage.get("prompt_tokens_details") or {}).get(
+            "cached_tokens", 0),
+        "tokens_out": usage.get("completion_tokens", 0),
+        "tokens_reasoning": details.get("reasoning_tokens"),
+        "cost_usd": usage.get("cost"),
+        "model_used": data.get("model", model),
+    }
+
+
+def run_claude(prompt: str, model: str | None, effort: str | None,
+               timeout: int) -> dict:
     cmd = ["claude", "-p", "--tools", "", "--output-format", "json"]
     if model:
         cmd += ["--model", model]
+    if effort:
+        cmd += ["--effort", effort]
     proc = subprocess.run(
         cmd, input=prompt, capture_output=True, text=True, timeout=timeout
     )
@@ -117,7 +182,8 @@ def run_claude(prompt: str, model: str | None, timeout: int) -> dict:
     }
 
 
-def run_codex(prompt: str, model: str | None, timeout: int) -> dict:
+def run_codex(prompt: str, model: str | None, effort: str | None,
+              timeout: int) -> dict:
     cmd = [
         "codex", "exec",
         "--skip-git-repo-check",
@@ -129,12 +195,19 @@ def run_codex(prompt: str, model: str | None, timeout: int) -> dict:
     ]
     if model:
         cmd += ["-m", model]
+    if effort:
+        cmd += ["-c", f"model_reasoning_effort={effort}"]
     cmd.append(prompt)
     proc = subprocess.run(
         cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout
     )
     if proc.returncode != 0:
-        raise RuntimeError(f"codex exited {proc.returncode}: {proc.stderr[:500]}")
+        detail = ""
+        for line in proc.stdout.splitlines():
+            if '"error"' in line or line.startswith("ERROR"):
+                detail = line.strip()[:300]
+        raise RuntimeError(
+            f"codex exited {proc.returncode}: {detail or proc.stderr[:300]}")
     text, usage = "", {}
     for line in proc.stdout.splitlines():
         line = line.strip()
@@ -160,7 +233,8 @@ def run_codex(prompt: str, model: str | None, timeout: int) -> dict:
     }
 
 
-RUNNERS = {"claude": run_claude, "codex": run_codex}
+RUNNERS = {"claude": run_claude, "codex": run_codex,
+           "openrouter": run_openrouter}
 
 
 # ---------------------------------------------------------------- grading
@@ -239,7 +313,7 @@ def append_run(run: dict) -> None:
 
 def attempt(date: str, spec: str, timeout: int) -> dict:
     puzzle = fetch_puzzle(date)
-    runner, model = parse_model_spec(spec)
+    runner, model, effort = parse_model_spec(spec)
     prompt = PROMPT_TEMPLATE.format(words="\n".join(board_words(puzzle)))
     run = {
         "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
@@ -250,7 +324,7 @@ def attempt(date: str, spec: str, timeout: int) -> dict:
     }
     start = time.monotonic()
     try:
-        out = RUNNERS[runner](prompt, model, timeout)
+        out = RUNNERS[runner](prompt, model, effort, timeout)
     except Exception as e:  # noqa: BLE001 - record any failure as a failed run
         run.update({"error": f"{type(e).__name__}: {e}", "solved": False,
                     "correct_groups": 0, "duration_s": round(time.monotonic() - start, 1)})
@@ -353,8 +427,9 @@ def main() -> None:
     run_p.add_argument("--start", help="range start YYYY-MM-DD")
     run_p.add_argument("--end", help="range end YYYY-MM-DD")
     run_p.add_argument("--models", default="claude,codex",
-                       help="comma-separated specs: runner[:model], "
-                            "e.g. claude:opus,codex:gpt-5.1 (default: claude,codex)")
+                       help="comma-separated specs: runner[:model][@effort], "
+                            "e.g. claude:haiku,claude:sonnet@low,codex:@low "
+                            "(default: claude,codex)")
     run_p.add_argument("--jobs", type=int, default=4, help="parallel attempts")
     run_p.add_argument("--timeout", type=int, default=600,
                        help="per-attempt timeout in seconds")

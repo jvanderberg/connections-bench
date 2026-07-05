@@ -14,6 +14,12 @@ official groups.
   tools and web search disabled, so the model can't just look up the answer:
   - `claude -p --tools "" --output-format json [--model <m>]`
   - `codex exec --json --sandbox read-only -c tools.web_search=false --ephemeral [-m <m>]`
+  - `openrouter:<model-id>` calls the OpenRouter chat-completions API directly
+    (no agent harness — just the raw model). Needs `OPENROUTER_API_KEY` in the
+    environment or in a gitignored `.env` file. Good for open-weight models,
+    e.g. `openrouter:deepseek/deepseek-v4-pro`, `openrouter:moonshotai/kimi-k2.6`,
+    `openrouter:z-ai/glm-5.2`, `openrouter:minimax/minimax-m3`,
+    `openrouter:qwen/qwen3.6-35b-a3b`.
 - **Grading** ignores the theme labels; an attempt is *solved* only if all four
   4-word groupings exactly match the official answer. Partial credit is
   recorded as `correct_groups` (0, 1, 2, or 4 — three correct implies four).
@@ -30,14 +36,17 @@ official groups.
 
 # a month of puzzles, specific model variants, 6 parallel attempts
 ./bench.py run --start 2026-06-01 --end 2026-06-30 \
-    --models claude:opus,claude:sonnet,codex,codex:gpt-5.1 --jobs 6
+    --models claude:opus,claude:haiku,codex,codex:@low --jobs 6
 
 # results table (also printed after every run)
 ./bench.py summary
 ```
 
-Model specs are `runner[:model]` — the part after `:` is passed straight to
-the CLI's `--model`/`-m` flag. Attempts already recorded for a (date, model)
+Model specs are `runner[:model][@effort]` — the model is passed straight to
+the CLI's `--model`/`-m` flag, and the effort to `claude --effort` /
+codex `-c model_reasoning_effort=`. `codex:@low` means codex's default model
+at low reasoning effort (ChatGPT-account codex only accepts its default
+model, so effort is the lever there). Attempts already recorded for a (date, model)
 pair are skipped; pass `--rerun` to redo them (the summary uses the latest
 attempt per pair).
 

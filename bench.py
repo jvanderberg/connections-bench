@@ -367,7 +367,14 @@ def cmd_run(args: argparse.Namespace) -> None:
     else:
         sys.exit("run requires --date, or --start and --end")
 
-    specs = [s.strip() for s in args.models.split(",") if s.strip()]
+    if args.models:
+        specs = [s.strip() for s in args.models.split(",") if s.strip()]
+    else:
+        roster = ROOT / "models.txt"
+        if not roster.exists():
+            sys.exit("no --models given and no models.txt found")
+        specs = [s.strip() for s in roster.read_text().splitlines()
+                 if s.strip() and not s.startswith("#")]
     done = {(r["date"], r["model"]) for r in load_runs()
             if not r.get("error") and r.get("prompt_v", 1) == PROMPT_VERSION}
     tasks = [(d, s) for d in dates for s in specs
@@ -446,10 +453,10 @@ def main() -> None:
     run_p.add_argument("--date", help="single puzzle date YYYY-MM-DD")
     run_p.add_argument("--start", help="range start YYYY-MM-DD")
     run_p.add_argument("--end", help="range end YYYY-MM-DD")
-    run_p.add_argument("--models", default="claude,codex",
+    run_p.add_argument("--models", default=None,
                        help="comma-separated specs: runner[:model][@effort], "
                             "e.g. claude:haiku,claude:sonnet@low,codex:@low "
-                            "(default: claude,codex)")
+                            "(default: the roster in models.txt)")
     run_p.add_argument("--jobs", type=int, default=4, help="parallel attempts")
     run_p.add_argument("--timeout", type=int, default=600,
                        help="per-attempt timeout in seconds")

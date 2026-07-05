@@ -48,11 +48,11 @@ def build() -> str:
     for m in models:
         rs = [latest[(d, m)] for d in dates if (d, m) in latest]
         ok = [r for r in rs if not r.get("error")]
-        solved = sum(1 for r in ok if r.get("solved"))
+        solved = sum(1 for r in ok if r.get("solved"))  # an error is a failure
         toks = sum(r.get("tokens_out") or 0 for r in ok) / max(len(ok), 1)
         costs = [r["cost_usd"] for r in ok if r.get("cost_usd") is not None]
         cost = sum(costs) / len(costs) if costs else None
-        stats.append((m, solved, len(ok), toks, cost))
+        stats.append((m, solved, len(rs), toks, cost))
     stats.sort(key=lambda s: (-s[1] / max(s[2], 1), s[3]))
     max_tok = max(s[3] for s in stats) or 1
 
@@ -63,8 +63,13 @@ def build() -> str:
         cells = []
         for d in dates:
             r = latest.get((d, m))
-            if r is None or r.get("error"):
-                cells.append('<div class="cell miss" title="no result"></div>')
+            if r is None:
+                cells.append('<div class="cell miss" title="no attempt"></div>')
+                continue
+            if r.get("error"):
+                cells.append(
+                    f'<div class="cell" style="background:{CELL[0]}" '
+                    f'title="{d}: error (counts as failure)"></div>')
                 continue
             g = 4 if r.get("solved") else r.get("correct_groups", 0)
             tip = f"{d}: {'solved' if g == 4 else f'{g}/4 groups'}"

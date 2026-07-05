@@ -424,23 +424,26 @@ def cmd_summary(_args: argparse.Namespace) -> None:
     for r in latest.values():
         by_model.setdefault(r["model"], []).append(r)
 
+    # An attempt that errored still counts as a failed attempt: solve rate and
+    # avg groups are over ALL attempts. Token/cost/time averages can only be
+    # taken over attempts that returned a response.
     print(f"\n{'model':<24} {'puzzles':>7} {'solved':>6} {'rate':>6} "
           f"{'avg grp':>7} {'avg out tok':>11} {'avg cost':>9} {'avg time':>8}")
     for model in sorted(by_model):
         rs = by_model[model]
         ok = [r for r in rs if not r.get("error")]
         solved = sum(1 for r in ok if r.get("solved"))
-        avg_grp = sum(r.get("correct_groups", 0) for r in ok) / len(ok) if ok else 0
+        avg_grp = sum(r.get("correct_groups", 0) for r in rs) / len(rs)
         avg_out = (sum(r.get("tokens_out") or 0 for r in ok) / len(ok)) if ok else 0
         costs = [r["cost_usd"] for r in ok if r.get("cost_usd") is not None]
         avg_cost = f"${sum(costs) / len(costs):.3f}" if costs else "-"
         avg_time = (sum(r.get("duration_s", 0) for r in ok) / len(ok)) if ok else 0
         errs = len(rs) - len(ok)
         line = (f"{model:<24} {len(rs):>7} {solved:>6} "
-                f"{solved / len(ok) * 100 if ok else 0:>5.0f}% "
+                f"{solved / len(rs) * 100:>5.0f}% "
                 f"{avg_grp:>7.2f} {avg_out:>11.0f} {avg_cost:>9} {avg_time:>7.0f}s")
         if errs:
-            line += f"  ({errs} error(s))"
+            line += f"  ({errs} error(s) counted as failures)"
         print(line)
 
 

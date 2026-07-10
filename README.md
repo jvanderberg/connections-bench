@@ -6,7 +6,7 @@ no feedback, no tools.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/results-dark.png">
-  <img alt="Solve-rate grid: 15 models × 10 daily puzzles, with per-model solved counts, average output tokens, and cost" src="assets/results-light.png">
+  <img alt="Solve-rate grid: 18 models × 10 daily puzzles, with per-model solved counts, average output tokens, and cost" src="assets/results-light.png">
 </picture>
 
 ## Results (June 25 – July 4, 2026)
@@ -15,7 +15,10 @@ no feedback, no tools.
 |---|---|---|---|
 | GPT-5.5 (codex) | **10/10** | 1,336 | – (sub) |
 | Claude Fable 5 @high | **10/10** | 1,648 | $0.19 |
+| GPT-5.6 Terra @high | **10/10** | 2,211 | – (sub) |
+| GPT-5.6 Luna @high | **10/10** | 4,840 | – (sub) |
 | Claude Opus 4.5 @high | **10/10** | 7,414 | $0.24 |
+| GPT-5.6 Sol @high | 9/10 | 1,299 | – (sub) |
 | Claude Opus 4.8 @high | 9/10 | 3,037 | $0.13 |
 | GPT-5.4 mini | 9/10 | 10,142 | – (sub) |
 | Claude Sonnet 5 @high | 8/10 | 4,112 | $0.10 |
@@ -31,12 +34,14 @@ no feedback, no tools.
 
 Things the sweep surfaced:
 
-- **Puzzle difficulty swings hard day to day** — July 3 fell to 14 of 15 models,
-  June 25 to only 7. Single-day comparisons are noise.
+- **The GPT-5.6 family went 29/30.** Terra and Luna swept all ten puzzles; Sol
+  got 2/4 groups on June 25 despite using the fewest average output tokens.
+- **Puzzle difficulty swings hard day to day** — July 3 fell to 17 of 18 models,
+  June 25 to only 9. Single-day comparisons are noise.
 - **Reasoning is the entry ticket.** GPT-4.1 mini (no reasoning) answers in
   ~150 tokens and went 0/10. Everything that deliberates solves at least a few.
 - **Capability shows up as token efficiency, not just accuracy.** The top models
-  solve in 1–2k output tokens; mid-tier models burn 10–40k for worse results.
+  average 1–5k output tokens; mid-tier models burn 10–40k for worse results.
 - **GLM-5.2 is the open-weight standout** — 8/10 for half a cent per solve-tier
   performance, matching Claude Sonnet 5.
 
@@ -79,6 +84,7 @@ Things the sweep surfaced:
 ```sh
 ./bench.py run --date 2026-07-04                 # roster from models.txt
 ./bench.py run --start 2026-06-25 --end 2026-07-04 --jobs 6
+./bench.py run --date 2026-07-09 --models codex:gpt-5.6-sol@high,codex:gpt-5.6-terra@high,codex:gpt-5.6-luna@high
 ./bench.py run --date 2026-07-04 --models claude:haiku@low,openrouter:z-ai/glm-5.2
 ./bench.py summary                               # leaderboard table
 python3 viz.py                                   # regenerate viz.html
@@ -87,10 +93,10 @@ python3 viz.py                                   # regenerate viz.html
 Keys: `OPENROUTER_API_KEY` and `OPENAI_API_KEY` from the environment or a
 gitignored `.env`. Attempts already recorded for a (date, model, prompt-version)
 are skipped; `--rerun` forces. Errored attempts retry automatically on the next
-run.
+run. GPT-5.6 requires Codex CLI 0.144.0 or newer.
 
 The figure: `python3 viz.py` then
-`npx playwright screenshot --viewport-size "1012,590" --color-scheme light viz.html assets/results-light.png`
+`npx playwright screenshot --viewport-size "1012,650" --color-scheme light viz.html assets/results-light.png`
 (and again with `dark`).
 
 ## Caveats

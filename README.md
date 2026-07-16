@@ -6,32 +6,38 @@ no feedback, no tools.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/results-dark.png">
-  <img alt="Solve-rate grid: 19 models × 10 daily puzzles, with per-model solved counts, average output tokens, and cost" src="assets/results-light.png">
+  <img alt="Solve-rate grid: 19 models × 10 daily puzzles, with per-model reasoning level, solved counts, average output tokens, and cost" src="assets/results-light.png">
 </picture>
 
 ## Results (June 25 – July 4, 2026)
 
-| model | solved | avg out tokens | avg cost/puzzle |
-|---|---|---|---|
-| GPT-5.5 (codex) | **10/10** | 1,336 | – (sub) |
-| Claude Fable 5 @high | **10/10** | 1,648 | $0.19 |
-| GPT-5.6 Terra @high | **10/10** | 2,211 | – (sub) |
-| GPT-5.6 Luna @high | **10/10** | 4,840 | – (sub) |
-| Claude Opus 4.5 @high | **10/10** | 7,414 | $0.24 |
-| GPT-5.6 Sol @high | 9/10 | 1,299 | – (sub) |
-| Claude Opus 4.8 @high | 9/10 | 3,037 | $0.13 |
-| Kimi K3 | 9/10 | 6,610 | $0.100 |
-| GPT-5.4 mini | 9/10 | 10,142 | – (sub) |
-| Claude Sonnet 5 @high | 8/10 | 4,112 | $0.10 |
-| GLM-5.2 | 8/10 | 17,423 | $0.053 |
-| DeepSeek V4 Pro | 7/10 | 12,207 | $0.039 |
-| Kimi K2.6 | 7/10 | 23,057 | $0.069 |
-| Claude Sonnet 4.5 @high | 6/10 | 5,416 | $0.11 |
-| Qwen3.6 35B A3B | 5/10 | 17,235 | $0.018 |
-| MiniMax M3 | 4/10 | 38,994 | $0.048 |
-| Claude Haiku 4.5 @high | 3/10 | 12,135 | $0.080 |
-| DeepSeek V4 Flash | 3/10 | 17,594 | $0.004 |
-| GPT-4.1 mini | 0/10 | 153 | – |
+| model | reasoning | solved | avg out tokens | avg cost/puzzle |
+|---|---|---|---|---|
+| GPT-5.5 (codex) | default | **10/10** | 1,336 | – (sub) |
+| Claude Fable 5 | high | **10/10** | 1,648 | $0.19 |
+| GPT-5.6 Terra | high | **10/10** | 2,211 | – (sub) |
+| GPT-5.6 Luna | high | **10/10** | 4,840 | – (sub) |
+| Claude Opus 4.5 | high | **10/10** | 7,414 | $0.24 |
+| GPT-5.6 Sol | high | 9/10 | 1,299 | – (sub) |
+| Claude Opus 4.8 | high | 9/10 | 3,037 | $0.13 |
+| Kimi K3 | max | 9/10 | 6,610 | $0.100 |
+| GPT-5.4 mini | default | 9/10 | 10,142 | – (sub) |
+| Claude Sonnet 5 | high | 8/10 | 4,112 | $0.10 |
+| GLM-5.2 | default | 8/10 | 17,423 | $0.053 |
+| DeepSeek V4 Pro | default | 7/10 | 12,207 | $0.039 |
+| Kimi K2.6 | default | 7/10 | 23,057 | $0.069 |
+| Claude Sonnet 4.5 | high | 6/10 | 5,416 | $0.11 |
+| Qwen3.6 35B A3B | default | 5/10 | 17,235 | $0.018 |
+| MiniMax M3 | default | 4/10 | 38,994 | $0.048 |
+| Claude Haiku 4.5 | high | 3/10 | 12,135 | $0.080 |
+| DeepSeek V4 Flash | default | 3/10 | 17,594 | $0.004 |
+| GPT-4.1 mini | none | 0/10 | 153 | – |
+
+Reasoning levels aren't uniform, so the column is not an apples-to-apples knob:
+`high` is pinned explicitly via `@high` in the model spec; `default` means the
+benchmark passes no effort and takes whatever the CLI or provider chooses;
+`none` is GPT-4.1 mini, which has no reasoning mode; `max` is Kimi K3, which
+currently exposes only that one level.
 
 Things the sweep surfaced:
 

@@ -9,7 +9,8 @@ import json
 from html import escape
 from pathlib import Path
 
-from bench import PROMPT_VERSION, STANDARD_VARIANT, load_runs, run_variant
+from bench import (PROMPT_VERSION, STANDARD_VARIANT, load_runs,
+                   parse_model_spec, run_variant)
 
 ROOT = Path(__file__).resolve().parent
 
@@ -38,6 +39,19 @@ LABELS = {
     "openrouter:minimax/minimax-m3": "MiniMax M3",
     "openrouter:qwen/qwen3.6-35b-a3b": "Qwen3.6 35B A3B",
 }
+
+# Reasoning level for specs that don't pin one with @effort. GPT-4.1 mini has no
+# reasoning mode at all; Kimi K3 currently exposes only "max". Everything else
+# runs whatever the CLI or provider defaults to.
+IMPLICIT_EFFORT = {
+    "codex-api:gpt-4.1-mini": "none",
+    "openrouter:moonshotai/kimi-k3": "max",
+}
+
+
+def effort_label(spec: str) -> str:
+    _, _, effort = parse_model_spec(spec)
+    return effort or IMPLICIT_EFFORT.get(spec, "default")
 
 
 def build() -> str:
@@ -88,6 +102,7 @@ def build() -> str:
         rows.append(f"""
       <div class="row">
         <div class="name">{escape(LABELS.get(m, m))}</div>
+        <div class="reason">{escape(effort_label(m))}</div>
         <div class="cells">{''.join(cells)}</div>
         <div class="solved">{solved}/{n}</div>
         <div class="tok"><span class="tokbar" style="width:{bar_w}px"></span>
@@ -116,13 +131,14 @@ def build() -> str:
     border-radius: 8px; margin: 16px; padding: 20px 24px; width: 980px; box-sizing: border-box; }}
   h1 {{ font-size: 17px; margin: 0 0 2px; font-weight: 600; }}
   .sub {{ color: var(--ink2); font-size: 12.5px; margin-bottom: 14px; }}
-  .row, .hdr {{ display: grid; grid-template-columns: 150px 300px 46px 240px 60px;
+  .row, .hdr {{ display: grid; grid-template-columns: 150px 68px 300px 46px 226px 56px;
     gap: 14px; align-items: center; padding: 3px 0; }}
   .hdr {{ color: var(--muted); font-size: 11px; border-bottom: 1px solid var(--hairline);
     padding-bottom: 5px; margin-bottom: 4px; }}
   .hdr .days {{ display: flex; gap: 2px; }}
   .day {{ width: 28px; text-align: center; }}
   .name {{ font-size: 12.5px; white-space: nowrap; }}
+  .reason {{ color: var(--ink2); font-size: 11.5px; white-space: nowrap; }}
   .cells {{ display: flex; gap: 2px; }}
   .cell {{ width: 28px; height: 18px; border-radius: 3px; }}
   .cell.miss {{ background: transparent; box-shadow: inset 0 0 0 1px var(--hairline); }}
@@ -142,6 +158,7 @@ def build() -> str:
     and the answer shape · tools/web disabled</div>
   <div class="hdr">
     <div>model</div>
+    <div>reasoning</div>
     <div class="days">{day_headers}</div>
     <div style="text-align:right">solved</div>
     <div>avg output tokens per puzzle</div>

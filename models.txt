@@ -13,6 +13,7 @@ codex-api:gpt-4.1-mini
 openrouter:deepseek/deepseek-v4-pro
 openrouter:deepseek/deepseek-v4-flash
 openrouter:moonshotai/kimi-k2.6
+openrouter:moonshotai/kimi-k3
 openrouter:z-ai/glm-5.2
 openrouter:minimax/minimax-m3
 openrouter:qwen/qwen3.6-35b-a3b

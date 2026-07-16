@@ -9,7 +9,7 @@ import json
 from html import escape
 from pathlib import Path
 
-from bench import PROMPT_VERSION, load_runs
+from bench import PROMPT_VERSION, STANDARD_VARIANT, load_runs, run_variant
 
 ROOT = Path(__file__).resolve().parent
 
@@ -33,6 +33,7 @@ LABELS = {
     "openrouter:deepseek/deepseek-v4-pro": "DeepSeek V4 Pro",
     "openrouter:deepseek/deepseek-v4-flash": "DeepSeek V4 Flash",
     "openrouter:moonshotai/kimi-k2.6": "Kimi K2.6",
+    "openrouter:moonshotai/kimi-k3": "Kimi K3",
     "openrouter:z-ai/glm-5.2": "GLM-5.2",
     "openrouter:minimax/minimax-m3": "MiniMax M3",
     "openrouter:qwen/qwen3.6-35b-a3b": "Qwen3.6 35B A3B",
@@ -42,7 +43,8 @@ LABELS = {
 def build() -> str:
     latest = {}
     for r in load_runs():
-        if r.get("prompt_v", 1) == PROMPT_VERSION:
+        if (run_variant(r) == STANDARD_VARIANT
+                and r.get("prompt_v", 1) == PROMPT_VERSION):
             latest[(r["date"], r["model"])] = r
     dates = sorted({d for d, _ in latest})
     models = sorted({m for _, m in latest})

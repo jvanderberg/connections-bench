@@ -30,9 +30,22 @@ RESULTS_FILE = ROOT / "results" / "runs.jsonl"
 NYT_URL = "https://www.nytimes.com/svc/connections/v2/{date}.json"
 
 PROMPT_VERSION = 3
+MISSING_PROMPT_VERSION = 1
+STANDARD_VARIANT = "standard"
+MISSING_VARIANT = "missing-one"
+MISSING_POSITION = 0  # first word in board order, for every puzzle
 
 PROMPT_TEMPLATE = """\
 Solve the puzzle:
+
+{words}
+
+Respond with ONLY a JSON object, no other text:
+{{"groups": [{{"theme": "...", "words": ["...", "..."]}}, ...]}}
+"""
+
+MISSING_PROMPT_TEMPLATE = """\
+Solve the puzzle. One word is missing; group only the words shown:
 
 {words}
 
@@ -65,10 +78,12 @@ def board_words(puzzle: dict) -> list[str]:
     return [c["content"] for c in sorted(cards, key=lambda c: c["position"])]
 
 
-def answer_groups(puzzle: dict) -> dict[frozenset, str]:
+def answer_groups(puzzle: dict, omitted_word: str | None = None) -> dict[frozenset, str]:
     """Map frozenset of normalized words -> category title."""
+    omitted = norm(omitted_word) if omitted_word else None
     return {
-        frozenset(norm(c["content"]) for c in cat["cards"]): cat["title"]
+        frozenset(norm(c["content"]) for c in cat["cards"]
+                  if norm(c["content"]) != omitted): cat["title"]
         for cat in puzzle["categories"]
     }
 
@@ -292,16 +307,17 @@ def grade(text: str, answers: dict[frozenset, str]) -> dict:
     result["guess"] = guess
 
     all_answer_words = set().union(*answers)
+    expected_sizes = sorted(len(s) for s in answers)
     guess_sets = [frozenset(norm(w) for w in g["words"]) for g in guess]
     used = [w for s in guess_sets for w in s]
     result["valid"] = (
-        len(guess_sets) == 4
-        and all(len(s) == 4 for s in guess_sets)
-        and len(used) == 16
+        len(guess_sets) == len(answers)
+        and sorted(len(s) for s in guess_sets) == expected_sizes
+        and len(used) == len(all_answer_words)
         and set(used) == all_answer_words
     )
     result["correct_groups"] = sum(1 for s in guess_sets if s in answers)
-    result["solved"] = result["correct_groups"] == 4
+    result["solved"] = result["correct_groups"] == len(answers)
     return result
 
 
@@ -325,18 +341,38 @@ def append_run(run: dict) -> None:
 
 # ---------------------------------------------------------------- commands
 
-def attempt(date: str, spec: str, timeout: int) -> dict:
+def run_variant(run: dict) -> str:
+    """Return a run's variant, treating historical records as standard."""
+    return run.get("variant", STANDARD_VARIANT)
+
+
+def prompt_version(variant: str) -> int:
+    return MISSING_PROMPT_VERSION if variant == MISSING_VARIANT else PROMPT_VERSION
+
+
+def attempt(date: str, spec: str, timeout: int,
+            variant: str = STANDARD_VARIANT) -> dict:
     puzzle = fetch_puzzle(date)
     runner, model, effort = parse_model_spec(spec)
-    prompt = PROMPT_TEMPLATE.format(words="\n".join(board_words(puzzle)))
+    words = board_words(puzzle)
+    omitted_word = None
+    if variant == MISSING_VARIANT:
+        omitted_word = words.pop(MISSING_POSITION)
+        template = MISSING_PROMPT_TEMPLATE
+    else:
+        template = PROMPT_TEMPLATE
+    prompt = template.format(words="\n".join(words))
     run = {
         "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "date": date,
         "puzzle_id": puzzle.get("id"),
         "model": spec,
         "runner": runner,
-        "prompt_v": PROMPT_VERSION,
+        "variant": variant,
+        "prompt_v": prompt_version(variant),
     }
+    if omitted_word:
+        run["omitted_word"] = omitted_word
     start = time.monotonic()
     try:
         out = RUNNERS[runner](prompt, model, effort, timeout)
@@ -345,7 +381,7 @@ def attempt(date: str, spec: str, timeout: int) -> dict:
                     "correct_groups": 0, "duration_s": round(time.monotonic() - start, 1)})
         return run
     run["duration_s"] = round(time.monotonic() - start, 1)
-    graded = grade(out["text"], answer_groups(puzzle))
+    graded = grade(out["text"], answer_groups(puzzle, omitted_word))
     run.update(graded)
     run.update({k: out[k] for k in
                 ("tokens_in", "tokens_in_cached", "tokens_out", "tokens_reasoning",
@@ -355,6 +391,8 @@ def attempt(date: str, spec: str, timeout: int) -> dict:
 
 
 def cmd_run(args: argparse.Namespace) -> None:
+    variant = MISSING_VARIANT if args.missing else STANDARD_VARIANT
+    current_prompt_version = prompt_version(variant)
     if args.date:
         dates = [args.date]
     elif args.start and args.end:
@@ -376,9 +414,10 @@ def cmd_run(args: argparse.Namespace) -> None:
         specs = [s.strip() for s in roster.read_text().splitlines()
                  if s.strip() and not s.startswith("#")]
     done = {(r["date"], r["model"]) for r in load_runs()
-            if not r.get("error") and r.get("prompt_v", 1) == PROMPT_VERSION}
+            if not r.get("error") and run_variant(r) == variant
+            and r.get("prompt_v", 1) == current_prompt_version}
     tasks = [(d, s) for d in dates for s in specs
-             if args.rerun or (d, s) not in done]
+             if args.no_record or args.rerun or (d, s) not in done]
     skipped = len(dates) * len(specs) - len(tasks)
     if skipped:
         print(f"skipping {skipped} attempt(s) already recorded (use --rerun to redo)")
@@ -390,12 +429,16 @@ def cmd_run(args: argparse.Namespace) -> None:
     for d in dates:
         fetch_puzzle(d)
 
-    print(f"running {len(tasks)} attempt(s) with {args.jobs} worker(s)")
+    print(f"running {len(tasks)} {variant} attempt(s) with {args.jobs} worker(s)")
+    session_runs = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(attempt, d, s, args.timeout): (d, s) for d, s in tasks}
+        futures = {pool.submit(attempt, d, s, args.timeout, variant): (d, s)
+                   for d, s in tasks}
         for fut in concurrent.futures.as_completed(futures):
             run = fut.result()
-            append_run(run)
+            session_runs.append(run)
+            if not args.no_record:
+                append_run(run)
             if run.get("error"):
                 status = f"ERROR {run['error'][:80]}"
             else:
@@ -404,17 +447,26 @@ def cmd_run(args: argparse.Namespace) -> None:
                 status += (f"  in={run['tokens_in'] + run['tokens_in_cached']}"
                            f" out={run['tokens_out']} tok, {run['duration_s']}s")
             print(f"  {run['date']}  {run['model']:<24} {status}")
-    cmd_summary(args)
+    if args.no_record:
+        print("\nlocal-only run: results were not recorded")
+        cmd_summary(args, session_runs)
+    else:
+        cmd_summary(args)
 
 
-def cmd_summary(_args: argparse.Namespace) -> None:
-    runs = load_runs()
-    older = sum(1 for r in runs if r.get("prompt_v", 1) != PROMPT_VERSION)
-    runs = [r for r in runs if r.get("prompt_v", 1) == PROMPT_VERSION]
+def cmd_summary(args: argparse.Namespace, supplied_runs: list[dict] | None = None) -> None:
+    variant = MISSING_VARIANT if args.missing else STANDARD_VARIANT
+    current_prompt_version = prompt_version(variant)
+    runs = supplied_runs if supplied_runs is not None else load_runs()
+    variant_runs = [r for r in runs if run_variant(r) == variant]
+    older = sum(1 for r in variant_runs
+                if r.get("prompt_v", 1) != current_prompt_version)
+    runs = [r for r in variant_runs
+            if r.get("prompt_v", 1) == current_prompt_version]
     if older:
         print(f"(ignoring {older} run(s) from older prompt versions)")
     if not runs:
-        print("no runs recorded yet for the current prompt version")
+        print(f"no {variant} runs recorded yet for the current prompt version")
         return
     # Keep only the latest attempt per (date, model).
     latest: dict[tuple, dict] = {}
@@ -465,9 +517,15 @@ def main() -> None:
                        help="per-attempt timeout in seconds")
     run_p.add_argument("--rerun", action="store_true",
                        help="rerun even if already recorded")
+    run_p.add_argument("--missing", action="store_true",
+                       help="remove the first board word from every puzzle")
+    run_p.add_argument("--no-record", action="store_true",
+                       help="print results without appending them to runs.jsonl")
     run_p.set_defaults(func=cmd_run)
 
     sum_p = sub.add_parser("summary", help="print results table")
+    sum_p.add_argument("--missing", action="store_true",
+                       help="summarize the missing-one variant")
     sum_p.set_defaults(func=cmd_summary)
 
     args = ap.parse_args()

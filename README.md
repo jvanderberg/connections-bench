@@ -6,7 +6,7 @@ no feedback, no tools.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/results-dark.png">
-  <img alt="Solve-rate grid: 18 models × 10 daily puzzles, with per-model solved counts, average output tokens, and cost" src="assets/results-light.png">
+  <img alt="Solve-rate grid: 19 models × 10 daily puzzles, with per-model solved counts, average output tokens, and cost" src="assets/results-light.png">
 </picture>
 
 ## Results (June 25 – July 4, 2026)
@@ -20,6 +20,7 @@ no feedback, no tools.
 | Claude Opus 4.5 @high | **10/10** | 7,414 | $0.24 |
 | GPT-5.6 Sol @high | 9/10 | 1,299 | – (sub) |
 | Claude Opus 4.8 @high | 9/10 | 3,037 | $0.13 |
+| Kimi K3 | 9/10 | 6,610 | $0.100 |
 | GPT-5.4 mini | 9/10 | 10,142 | – (sub) |
 | Claude Sonnet 5 @high | 8/10 | 4,112 | $0.10 |
 | GLM-5.2 | 8/10 | 17,423 | $0.053 |
@@ -36,14 +37,19 @@ Things the sweep surfaced:
 
 - **The GPT-5.6 family went 29/30.** Terra and Luna swept all ten puzzles; Sol
   got 2/4 groups on June 25 despite using the fewest average output tokens.
-- **Puzzle difficulty swings hard day to day** — July 3 fell to 17 of 18 models,
-  June 25 to only 9. Single-day comparisons are noise.
+- **Puzzle difficulty swings hard day to day** — July 3 fell to 18 of 19 models,
+  June 25 and July 2 to only 10. Single-day comparisons are noise.
 - **Reasoning is the entry ticket.** GPT-4.1 mini (no reasoning) answers in
   ~150 tokens and went 0/10. Everything that deliberates solves at least a few.
 - **Capability shows up as token efficiency, not just accuracy.** The top models
   average 1–5k output tokens; mid-tier models burn 10–40k for worse results.
-- **GLM-5.2 is the open-weight standout** — 8/10 for half a cent per solve-tier
-  performance, matching Claude Sonnet 5.
+- **Kimi K3 leads the open-weight field** — 9/10, ahead of GLM-5.2 (8/10) and its
+  own predecessor K2.6 (7/10), and level with Claude Opus 4.8 and GPT-5.6 Sol. It
+  gets there while thinking a third as much as K2.6 (6.6k vs 23k output tokens),
+  so the generation's efficiency gains are real and not just accuracy gains. Its
+  one miss was a malformed API response rather than a wrong grouping — counted as
+  a failure, but see the caveat below.
+- **GLM-5.2 is still the value pick** — 8/10 at half K3's cost per puzzle.
 
 ## How it works
 
@@ -84,6 +90,7 @@ Things the sweep surfaced:
 ```sh
 ./bench.py run --date 2026-07-04                 # roster from models.txt
 ./bench.py run --start 2026-06-25 --end 2026-07-04 --jobs 6
+./bench.py run --start 2026-06-25 --end 2026-07-04 --models codex:gpt-5.5 --missing --no-record
 ./bench.py run --date 2026-07-09 --models codex:gpt-5.6-sol@high,codex:gpt-5.6-terra@high,codex:gpt-5.6-luna@high
 ./bench.py run --date 2026-07-04 --models claude:haiku@low,openrouter:z-ai/glm-5.2
 ./bench.py summary                               # leaderboard table
@@ -95,8 +102,13 @@ gitignored `.env`. Attempts already recorded for a (date, model, prompt-version)
 are skipped; `--rerun` forces. Errored attempts retry automatically on the next
 run. GPT-5.6 requires Codex CLI 0.144.0 or newer.
 
+`--missing` is a harder variant that always removes the first word in board
+order. The prompt only says that one word is missing and asks the model to group
+the 15 shown words; grading expects three groups of four and one group of three.
+Use `summary --missing` to keep its results separate from the standard benchmark.
+
 The figure: `python3 viz.py` then
-`npx playwright screenshot --viewport-size "1012,650" --color-scheme light viz.html assets/results-light.png`
+`npx playwright screenshot --viewport-size "1012,675" --color-scheme light viz.html assets/results-light.png`
 (and again with `dark`).
 
 ## Caveats
@@ -111,3 +123,12 @@ The figure: `python3 viz.py` then
   is exact.
 - One attempt per (date, model) — solve rates on 10 puzzles carry ±1-puzzle
   noise; treat close rankings as ties.
+- **Errors count as failures**, which can understate a model when the fault is
+  the transport rather than the reasoning. Kimi K3's single miss (July 2) is a
+  `JSONDecodeError` raised while parsing OpenRouter's *response body*, reproduced
+  on three separate attempts at a different byte offset each time, on the puzzle
+  where it thinks longest. The response never reached grading, so nothing is
+  known about whether the grouping would have been right. Cause is unconfirmed;
+  the leading theory is keepalive lines injected into long-running non-streaming
+  responses, which would make it a `run_openrouter` parsing gap affecting any
+  slow model, not a K3 defect.

@@ -6,7 +6,7 @@ no feedback, no tools.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/results-dark.png">
-  <img alt="Solve-rate grid: 21 models × 20 daily puzzles, with per-model reasoning level, solved counts, average output tokens, and cost" src="assets/results-light.png">
+  <img alt="Solve-rate grid: 22 models × 20 daily puzzles, with per-model reasoning level, solved counts, average output tokens, and cost" src="assets/results-light.png">
 </picture>
 
 ## Results (June 25 – July 14, 2026)
@@ -28,6 +28,7 @@ no feedback, no tools.
 | Kimi K2.6 | default | 15/20 | 22,986 | $0.075 |
 | Claude Sonnet 4.5 | high | 13/20 | 5,529 | $0.11 |
 | DeepSeek V4 Pro | default | 13/20 | 9,490 | $0.030 |
+| Gemini 2.5 Pro | default | 9/20 | 4,469 | $0.044 |
 | Qwen3.6 35B A3B | default | 9/20 | 20,158 | $0.021 |
 | MiniMax M3 | default | 9/20 | 31,024 | $0.038 |
 | Claude Haiku 4.5 | high | 6/20 | 13,581 | $0.083 |
@@ -49,8 +50,10 @@ Things the sweep surfaced:
 - **Gemini 3.1 Pro is the cheapest perfect score** — 20/20 at $0.056/puzzle, less
   than half of Kimi K3 and a third of Claude Fable 5, and fastest of the sweepers
   at 39s. It ran at OpenRouter's default effort; the pinned-`high` Claude and GPT
-  flagships had no edge on it here.
-- **Puzzle difficulty swings hard day to day** — July 12 beat all but 7 of 21
+  flagships had no edge on it here. The generational jump is stark: the prior
+  Gemini Pro (2.5) went just 9/20 on the same puzzles, so 2.5→3.1 moved from
+  mid-pack to a clean sweep.
+- **Puzzle difficulty swings hard day to day** — July 12 beat all but 7 of 22
   models, while July 3 and July 9 fell to all but one or two. Single-day
   comparisons are noise, and even twenty days is a small sample.
 - **Reasoning is the entry ticket, and effort level gates it.** GPT-4.1 mini (no
@@ -126,7 +129,7 @@ the 15 shown words; grading expects three groups of four and one group of three.
 Use `summary --missing` to keep its results separate from the standard benchmark.
 
 The figure: `python3 viz.py` then
-`npx playwright screenshot --viewport-size "1140,725" --color-scheme light viz.html assets/results-light.png`
+`npx playwright screenshot --viewport-size "1140,750" --color-scheme light viz.html assets/results-light.png`
 (and again with `dark`).
 
 ## Caveats

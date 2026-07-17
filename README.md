@@ -6,7 +6,7 @@ no feedback, no tools.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/results-dark.png">
-  <img alt="Solve-rate grid: 19 models × 20 daily puzzles, with per-model reasoning level, solved counts, average output tokens, and cost" src="assets/results-light.png">
+  <img alt="Solve-rate grid: 21 models × 20 daily puzzles, with per-model reasoning level, solved counts, average output tokens, and cost" src="assets/results-light.png">
 </picture>
 
 ## Results (June 25 – July 14, 2026)
@@ -16,6 +16,7 @@ no feedback, no tools.
 | GPT-5.5 (codex) | default | **20/20** | 1,248 | – (sub) |
 | Claude Fable 5 | high | **20/20** | 1,407 | $0.18 |
 | GPT-5.6 Luna | high | **20/20** | 4,257 | – (sub) |
+| Gemini 3.1 Pro | default | **20/20** | 4,681 | $0.056 |
 | Kimi K3 | max | **20/20** | 7,692 | $0.12 |
 | GPT-5.6 Sol | high | 19/20 | 1,695 | – (sub) |
 | GPT-5.6 Terra | high | 19/20 | 1,853 | – (sub) |
@@ -30,6 +31,7 @@ no feedback, no tools.
 | Qwen3.6 35B A3B | default | 9/20 | 20,158 | $0.021 |
 | MiniMax M3 | default | 9/20 | 31,024 | $0.038 |
 | Claude Haiku 4.5 | high | 6/20 | 13,581 | $0.083 |
+| Gemini 3.5 Flash | default | 5/20 | 1,311 | $0.012 |
 | DeepSeek V4 Flash | default | 5/20 | 19,964 | $0.005 |
 | GPT-4.1 mini | none | 0/20 | 154 | – |
 
@@ -41,14 +43,21 @@ currently exposes only that one level.
 
 Things the sweep surfaced:
 
-- **Four models swept all twenty**: GPT-5.5 (codex), Claude Fable 5, GPT-5.6
-  Luna, and Kimi K3 — the last of which is open-weight. The GPT-5.6 family went
-  58/60 across its three variants.
-- **Puzzle difficulty swings hard day to day** — July 12 beat all but 6 of 19
-  models, while July 3 and July 9 fell to 18. Single-day comparisons are noise,
-  and even twenty days is a small sample.
-- **Reasoning is the entry ticket.** GPT-4.1 mini (no reasoning) answers in
-  ~150 tokens and went 0/20. Everything that deliberates solves at least a few.
+- **Five models swept all twenty**: GPT-5.5 (codex), Claude Fable 5, GPT-5.6
+  Luna, Gemini 3.1 Pro, and Kimi K3 (open-weight). The GPT-5.6 family went 58/60
+  across its three variants.
+- **Gemini 3.1 Pro is the cheapest perfect score** — 20/20 at $0.056/puzzle, less
+  than half of Kimi K3 and a third of Claude Fable 5, and fastest of the sweepers
+  at 39s. It ran at OpenRouter's default effort; the pinned-`high` Claude and GPT
+  flagships had no edge on it here.
+- **Puzzle difficulty swings hard day to day** — July 12 beat all but 7 of 21
+  models, while July 3 and July 9 fell to all but one or two. Single-day
+  comparisons are noise, and even twenty days is a small sample.
+- **Reasoning is the entry ticket, and effort level gates it.** GPT-4.1 mini (no
+  reasoning) answers in ~150 tokens and went 0/20. Gemini 3.5 Flash at its default
+  medium effort mostly answered in ~200 tokens too and managed 5/20 — the same
+  model family as the 20/20 Pro, separated largely by how much it was allowed to
+  think. Every model that deliberates at length solves most puzzles.
 - **Capability shows up as token efficiency, not just accuracy.** The perfect
   scorers average 1.2–7.7k output tokens; mid-tier models burn 20–31k for half
   the solve rate. Token count tracks *how hard the puzzle is for that model*, not
@@ -117,7 +126,7 @@ the 15 shown words; grading expects three groups of four and one group of three.
 Use `summary --missing` to keep its results separate from the standard benchmark.
 
 The figure: `python3 viz.py` then
-`npx playwright screenshot --viewport-size "1140,675" --color-scheme light viz.html assets/results-light.png`
+`npx playwright screenshot --viewport-size "1140,725" --color-scheme light viz.html assets/results-light.png`
 (and again with `dark`).
 
 ## Caveats
@@ -130,7 +139,7 @@ The figure: `python3 viz.py` then
 - **Costs**: claude numbers are the CLI's API-metered figure (notional if you're
   on a subscription); codex ChatGPT-account runs don't report cost; OpenRouter
   is exact.
-- One attempt per (date, model) — solve rates on 10 puzzles carry ±1-puzzle
+- One attempt per (date, model) — solve rates on 20 puzzles carry ±1-puzzle
   noise; treat close rankings as ties.
 - **Errors count as failures, so a flaky transport can silently libel a model.**
   Kimi K3 released mid-sweep and OpenRouter rate-limited it in bursts; for two

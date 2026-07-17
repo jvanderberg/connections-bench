@@ -133,14 +133,21 @@ The figure: `python3 viz.py` then
 - One attempt per (date, model) — solve rates on 10 puzzles carry ±1-puzzle
   noise; treat close rankings as ties.
 - **Errors count as failures, and this understates Kimi K3.** K3 released on
-  July 16, mid-sweep, and its serving capacity has been erratic: of its 20
-  attempts, 3 never produced a response (two HTTP 429s, one request that hit the
-  900s deadline having received nothing but keepalive padding). Those score as
-  failures, so K3 shows 17/20 — but it solved **all 17** attempts that actually
-  returned. Its real rate is somewhere in 17/20–20/20 and this benchmark cannot
-  yet say where. Four retry passes over two days recovered six other throttled
-  attempts (all solved) but never cleared these three. Rerun once Moonshot
-  capacity settles.
+  July 16, mid-sweep, and OpenRouter has been rate-limiting it hard: all 3 of its
+  non-solves are HTTP 429s, rejected in 0.4–16s before it ran at all. Those score
+  as failures, so K3 shows 17/20 — but it solved **all 17** attempts that
+  actually returned. Its real rate is somewhere in 17/20–20/20 and this benchmark
+  cannot yet say where. Retry passes over two days recovered six other throttled
+  attempts (all solved) but never cleared these three, and the throttling ignores
+  `--jobs 1`, so it is account-level quota rather than harness concurrency. Rerun
+  once Moonshot capacity settles.
+- **Kimi K3 is slow because it thinks, not because it's loaded.** Its throughput
+  is a near-constant 35.5 tok/s (stdev 2.5) and duration correlates with output
+  tokens at r=0.998 — a 978s run is 32k tokens at the same rate as a 24s / 845
+  token run. Note `--timeout 900` is therefore too tight for it: a 978s solve is
+  already in the data, so any harder puzzle gets scored as a failure it didn't
+  earn. Use `--timeout 3600` for K3. (K2.6, by contrast, swings 45–171 tok/s,
+  which does look like contention.)
 - **OpenRouter pads slow non-streaming responses** with whitespace keepalives
   while waiting on the provider. `json.loads` skips them, but if the provider
   never answers, padding is all you get. `run_openrouter` reports that as

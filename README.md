@@ -6,32 +6,32 @@ no feedback, no tools.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/results-dark.png">
-  <img alt="Solve-rate grid: 19 models × 10 daily puzzles, with per-model reasoning level, solved counts, average output tokens, and cost" src="assets/results-light.png">
+  <img alt="Solve-rate grid: 19 models × 20 daily puzzles, with per-model reasoning level, solved counts, average output tokens, and cost" src="assets/results-light.png">
 </picture>
 
-## Results (June 25 – July 4, 2026)
+## Results (June 25 – July 14, 2026)
 
 | model | reasoning | solved | avg out tokens | avg cost/puzzle |
 |---|---|---|---|---|
-| GPT-5.5 (codex) | default | **10/10** | 1,336 | – (sub) |
-| Claude Fable 5 | high | **10/10** | 1,648 | $0.19 |
-| GPT-5.6 Terra | high | **10/10** | 2,211 | – (sub) |
-| GPT-5.6 Luna | high | **10/10** | 4,840 | – (sub) |
-| Claude Opus 4.5 | high | **10/10** | 7,414 | $0.24 |
-| GPT-5.6 Sol | high | 9/10 | 1,299 | – (sub) |
-| Claude Opus 4.8 | high | 9/10 | 3,037 | $0.13 |
-| Kimi K3 | max | 9/10 | 6,610 | $0.100 |
-| GPT-5.4 mini | default | 9/10 | 10,142 | – (sub) |
-| Claude Sonnet 5 | high | 8/10 | 4,112 | $0.10 |
-| GLM-5.2 | default | 8/10 | 17,423 | $0.053 |
-| DeepSeek V4 Pro | default | 7/10 | 12,207 | $0.039 |
-| Kimi K2.6 | default | 7/10 | 23,057 | $0.069 |
-| Claude Sonnet 4.5 | high | 6/10 | 5,416 | $0.11 |
-| Qwen3.6 35B A3B | default | 5/10 | 17,235 | $0.018 |
-| MiniMax M3 | default | 4/10 | 38,994 | $0.048 |
-| Claude Haiku 4.5 | high | 3/10 | 12,135 | $0.080 |
-| DeepSeek V4 Flash | default | 3/10 | 17,594 | $0.004 |
-| GPT-4.1 mini | none | 0/10 | 153 | – |
+| GPT-5.5 (codex) | default | **20/20** | 1,248 | – (sub) |
+| Claude Fable 5 | high | **20/20** | 1,407 | $0.18 |
+| GPT-5.6 Luna | high | **20/20** | 4,257 | – (sub) |
+| GPT-5.6 Sol | high | 19/20 | 1,695 | – (sub) |
+| GPT-5.6 Terra | high | 19/20 | 1,853 | – (sub) |
+| Claude Opus 4.8 | high | 19/20 | 2,324 | $0.11 |
+| Claude Opus 4.5 | high | 19/20 | 7,874 | $0.26 |
+| Kimi K3 | max | 17/20 | 7,608 | $0.11 |
+| Claude Sonnet 5 | high | 16/20 | 5,411 | $0.13 |
+| GPT-5.4 mini | default | 16/20 | 10,178 | – (sub) |
+| GLM-5.2 | default | 15/20 | 21,713 | $0.073 |
+| Kimi K2.6 | default | 15/20 | 22,986 | $0.075 |
+| Claude Sonnet 4.5 | high | 13/20 | 5,529 | $0.11 |
+| DeepSeek V4 Pro | default | 13/20 | 9,490 | $0.030 |
+| Qwen3.6 35B A3B | default | 9/20 | 20,158 | $0.021 |
+| MiniMax M3 | default | 9/20 | 31,024 | $0.038 |
+| Claude Haiku 4.5 | high | 6/20 | 13,581 | $0.083 |
+| DeepSeek V4 Flash | default | 5/20 | 19,964 | $0.005 |
+| GPT-4.1 mini | none | 0/20 | 154 | – |
 
 Reasoning levels aren't uniform, so the column is not an apples-to-apples knob:
 `high` is pinned explicitly via `@high` in the model spec; `default` means the
@@ -41,21 +41,24 @@ currently exposes only that one level.
 
 Things the sweep surfaced:
 
-- **The GPT-5.6 family went 29/30.** Terra and Luna swept all ten puzzles; Sol
-  got 2/4 groups on June 25 despite using the fewest average output tokens.
-- **Puzzle difficulty swings hard day to day** — July 3 fell to 18 of 19 models,
-  June 25 and July 2 to only 10. Single-day comparisons are noise.
+- **Three models swept all twenty**: GPT-5.5 (codex), Claude Fable 5, and
+  GPT-5.6 Luna. The GPT-5.6 family went 58/60 across its three variants.
+- **Puzzle difficulty swings hard day to day** — July 12 beat all but 6 of 19
+  models, while July 3 and July 9 fell to 18. Single-day comparisons are noise,
+  and even twenty days is a small sample.
 - **Reasoning is the entry ticket.** GPT-4.1 mini (no reasoning) answers in
-  ~150 tokens and went 0/10. Everything that deliberates solves at least a few.
-- **Capability shows up as token efficiency, not just accuracy.** The top models
-  average 1–5k output tokens; mid-tier models burn 10–40k for worse results.
-- **Kimi K3 leads the open-weight field** — 9/10, ahead of GLM-5.2 (8/10) and its
-  own predecessor K2.6 (7/10), and level with Claude Opus 4.8 and GPT-5.6 Sol. It
-  gets there while thinking a third as much as K2.6 (6.6k vs 23k output tokens),
-  so the generation's efficiency gains are real and not just accuracy gains. Its
-  one miss was a malformed API response rather than a wrong grouping — counted as
-  a failure, but see the caveat below.
-- **GLM-5.2 is still the value pick** — 8/10 at half K3's cost per puzzle.
+  ~150 tokens and went 0/20. Everything that deliberates solves at least a few.
+- **Capability shows up as token efficiency, not just accuracy.** The sweep's
+  three perfect scorers average 1.2–4.3k output tokens; mid-tier models burn
+  20–31k for half the solve rate.
+- **Kimi K3 leads the open-weight field** — 17/20, well ahead of GLM-5.2 and its
+  own predecessor K2.6 (both 15/20), while thinking a third as much as K2.6
+  (7.6k vs 23k output tokens). All three of its non-solves were transport
+  failures on a model released mid-sweep, never a wrong grouping: it has not
+  actually missed a puzzle in 17 valid attempts. See the caveat below — its true
+  rate is somewhere between 17/20 and 20/20 and this benchmark can't yet say
+  where.
+- **DeepSeek V4 Pro is the value pick** — 13/20 at $0.030, a third of K3's cost.
 
 ## How it works
 
@@ -114,7 +117,7 @@ the 15 shown words; grading expects three groups of four and one group of three.
 Use `summary --missing` to keep its results separate from the standard benchmark.
 
 The figure: `python3 viz.py` then
-`npx playwright screenshot --viewport-size "1012,675" --color-scheme light viz.html assets/results-light.png`
+`npx playwright screenshot --viewport-size "1140,675" --color-scheme light viz.html assets/results-light.png`
 (and again with `dark`).
 
 ## Caveats
@@ -129,12 +132,20 @@ The figure: `python3 viz.py` then
   is exact.
 - One attempt per (date, model) — solve rates on 10 puzzles carry ±1-puzzle
   noise; treat close rankings as ties.
-- **Errors count as failures**, which can understate a model when the fault is
-  the transport rather than the reasoning. Kimi K3's single miss (July 2) is a
-  `JSONDecodeError` raised while parsing OpenRouter's *response body*, reproduced
-  on three separate attempts at a different byte offset each time, on the puzzle
-  where it thinks longest. The response never reached grading, so nothing is
-  known about whether the grouping would have been right. Cause is unconfirmed;
-  the leading theory is keepalive lines injected into long-running non-streaming
-  responses, which would make it a `run_openrouter` parsing gap affecting any
-  slow model, not a K3 defect.
+- **Errors count as failures, and this understates Kimi K3.** K3 released on
+  July 16, mid-sweep, and its serving capacity has been erratic: of its 20
+  attempts, 3 never produced a response (two HTTP 429s, one request that hit the
+  900s deadline having received nothing but keepalive padding). Those score as
+  failures, so K3 shows 17/20 — but it solved **all 17** attempts that actually
+  returned. Its real rate is somewhere in 17/20–20/20 and this benchmark cannot
+  yet say where. Four retry passes over two days recovered six other throttled
+  attempts (all solved) but never cleared these three. Rerun once Moonshot
+  capacity settles.
+- **OpenRouter pads slow non-streaming responses** with whitespace keepalives
+  while waiting on the provider. `json.loads` skips them, but if the provider
+  never answers, padding is all you get. `run_openrouter` reports that as
+  "no payload" rather than a confusing `JSONDecodeError` at the end of the body.
+  Note also that `urlopen`'s timeout is per-socket-operation, so padding would
+  reset it forever; `read_with_deadline` bounds the request on total elapsed
+  time instead. That deadline is monotonic-clock based, so it does not count
+  time the machine spends asleep.

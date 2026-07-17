@@ -134,6 +134,32 @@ def codex_api_home() -> Path:
     return home
 
 
+def read_with_deadline(req: urllib.request.Request, timeout: int) -> bytes:
+    """Fetch a request body, bounded by total elapsed time rather than idle time.
+
+    urlopen's timeout is per socket operation, so a server that trickles
+    keepalive padding resets it on every chunk and the request can outlive
+    --timeout indefinitely. read1() returns as soon as any bytes are available
+    (read() would block until its buffer filled, which 11-byte padding units
+    take forever to do), so the deadline is checked between chunks.
+    """
+    start = time.monotonic()
+    chunks = []
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        while True:
+            elapsed = time.monotonic() - start
+            if elapsed > timeout:
+                raise TimeoutError(
+                    f"openrouter request exceeded {timeout}s "
+                    f"({sum(len(c) for c in chunks)} bytes received, "
+                    f"no complete payload)")
+            chunk = resp.read1(65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def run_openrouter(prompt: str, model: str | None, effort: str | None,
                    timeout: int) -> dict:
     if not model:
@@ -154,8 +180,16 @@ def run_openrouter(prompt: str, model: str | None, effort: str | None,
             "Content-Type": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        data = json.loads(resp.read())
+    raw = read_with_deadline(req, timeout)
+    # OpenRouter pads a slow non-streaming response with whitespace keepalives
+    # while it waits on the provider. json.loads skips those, but if the
+    # provider never answers we get padding and nothing else -- report that as
+    # what it is instead of a JSONDecodeError pointing at the end of the body.
+    if not raw.strip():
+        raise RuntimeError(
+            f"openrouter sent {len(raw)} bytes of keepalive padding and no "
+            f"payload: {model} did not return a completion")
+    data = json.loads(raw)
     if data.get("error"):
         raise RuntimeError(f"openrouter error: {data['error']}")
     usage = data.get("usage", {})

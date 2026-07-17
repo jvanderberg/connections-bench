@@ -128,19 +128,19 @@ def build() -> str:
   body {{ margin: 0; background: var(--plane);
     font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); }}
   .fig {{ background: var(--surface); border: 1px solid var(--ring);
-    border-radius: 8px; margin: 16px; padding: 20px 24px; width: 980px; box-sizing: border-box; }}
+    border-radius: 8px; margin: 16px; padding: 20px 24px; width: 1104px; box-sizing: border-box; }}
   h1 {{ font-size: 17px; margin: 0 0 2px; font-weight: 600; }}
   .sub {{ color: var(--ink2); font-size: 12.5px; margin-bottom: 14px; }}
-  .row, .hdr {{ display: grid; grid-template-columns: 150px 68px 300px 46px 226px 56px;
+  .row, .hdr {{ display: grid; grid-template-columns: 150px 68px 438px 46px 226px 56px;
     gap: 14px; align-items: center; padding: 3px 0; }}
   .hdr {{ color: var(--muted); font-size: 11px; border-bottom: 1px solid var(--hairline);
     padding-bottom: 5px; margin-bottom: 4px; }}
   .hdr .days {{ display: flex; gap: 2px; }}
-  .day {{ width: 28px; text-align: center; }}
+  .day {{ width: 20px; text-align: center; }}
   .name {{ font-size: 12.5px; white-space: nowrap; }}
   .reason {{ color: var(--ink2); font-size: 11.5px; white-space: nowrap; }}
   .cells {{ display: flex; gap: 2px; }}
-  .cell {{ width: 28px; height: 18px; border-radius: 3px; }}
+  .cell {{ width: 20px; height: 18px; border-radius: 3px; }}
   .cell.miss {{ background: transparent; box-shadow: inset 0 0 0 1px var(--hairline); }}
   .solved {{ font-variant-numeric: tabular-nums; font-size: 12.5px; text-align: right; }}
   .tok {{ display: flex; align-items: center; gap: 6px; }}

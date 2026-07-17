@@ -20,6 +20,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -31,6 +32,8 @@ NYT_URL = "https://www.nytimes.com/svc/connections/v2/{date}.json"
 
 PROMPT_VERSION = 3
 MISSING_PROMPT_VERSION = 1
+RATE_LIMIT_RETRIES = 5          # 429s are transient; don't score them as failures
+RATE_LIMIT_BACKOFF_S = 15       # 15s, 30s, 60s, 120s between attempts
 STANDARD_VARIANT = "standard"
 MISSING_VARIANT = "missing-one"
 MISSING_POSITION = 0  # first word in board order, for every puzzle
@@ -180,7 +183,17 @@ def run_openrouter(prompt: str, model: str | None, effort: str | None,
             "Content-Type": "application/json",
         },
     )
-    raw = read_with_deadline(req, timeout)
+    # A 429 is "wait a moment", not a verdict on the model -- without backoff it
+    # would be recorded as a failed attempt. Bursty limits (Kimi K3 on release
+    # day) reject in under a second and clear within a minute or two.
+    for retry in range(RATE_LIMIT_RETRIES):
+        try:
+            raw = read_with_deadline(req, timeout)
+            break
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or retry == RATE_LIMIT_RETRIES - 1:
+                raise
+            time.sleep(RATE_LIMIT_BACKOFF_S * 2 ** retry)
     # OpenRouter pads a slow non-streaming response with whitespace keepalives
     # while it waits on the provider. json.loads skips those, but if the
     # provider never answers we get padding and nothing else -- report that as

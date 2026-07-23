@@ -41,6 +41,8 @@ LABELS = {
     "openrouter:google/gemini-3.1-pro-preview": "Gemini 3.1 Pro",
     "openrouter:google/gemini-3.5-flash": "Gemini 3.5 Flash",
     "openrouter:google/gemini-2.5-pro": "Gemini 2.5 Pro",
+    "openrouter:google/gemini-3.6-flash": "Gemini 3.6 Flash",
+    "openrouter:google/gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
 }
 
 # Reasoning level for specs that don't pin one with @effort. GPT-4.1 mini has no
